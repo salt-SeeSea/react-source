@@ -38,9 +38,11 @@ function createDOM(vNode) {
     setPropsForDOM(dom, props)
     if (typeof children === 'object') {
       mount(children, dom)
+      children.parentVNode = vNode
     } else if (Array.isArray(children)) {
       children.forEach((child, index) => { 
         child.index = index
+        child.parentVNode = vNode
         mount(child, dom)
       })
     }  
@@ -101,15 +103,53 @@ function getDOMByForwardRefFunction(VNode) {
   if (!renderVNode) return null
   return createDOM(renderVNode)
 }
-export function updateDOMTreeByVNode(oldVNode, newVNode, oldDOM) {
-  if (!oldDOM) { return }
-  const parent = oldDOM.parentNode
-  if (parent) { 
-    parent.removeChild(oldDOM)
-    // debugger
-    parent.appendChild(createDOM(newVNode))
+export function updateDOMTreeByVNode(oldVNode, newVNode, parentNode) {
+  // const parentNode = oldDOM.parentNode
+  // 新节点、旧节点不存在
+  // 新节点存在，旧节点不存在
+  // 新节点不存在，旧节点存在
+  // 新、旧节点都存在，类型不一样
+  // 新、旧节点都存在，类型一样
+  const typeMap = {
+    NO_OPERATE: !oldVNode && !newVNode,
+    ADD: !oldVNode && newVNode,
+    DELETE: oldVNode && !newVNode,
+    REPLACE: oldVNode && newVNode && oldVNode.type !== newVNode.type
+  }
+  const typeKey = Object.keys(typeMap).find(key => typeMap[key])
+  switch (typeKey) { 
+    case 'NO_OPERATE': { 
+      break
+    }
+    case 'ADD': { 
+      parentNode.appendChild(createDOM(newVNode))
+      break
+    }
+    case 'DELETE': { 
+      removeVNode(oldVNode)
+      break
+    }
+    case 'REPLACE': {
+      removeVNode(oldVNode)
+      parentNode.appendChild(newVNode)
+      break
+      }
+    default: { 
+      // 深度dom，diff，
+      deepDOMDiff(oldVNode, newVNode)
+    }
   }
 }
+function removeVNode(VNode) { 
+  const currentDOM = getDOMByVNode(VNode)
+  if (currentDOM) { 
+    currentDOM.remove()
+  }
+}
+function deepDOMDiff(oldVNode, newVNode) { 
+
+}
+
 export function getDOMByVNode(VNode) { 
   if (!VNode) return null
   return VNode.dom || null
