@@ -81,6 +81,7 @@ function getDOMFromFunctionComponent(VNode) {
   const  renderVNode = type(props)
   if (!renderVNode) return null
   VNode.dom = createDOM(renderVNode)
+  VNode.oldRenderVNode = renderVNode
   return VNode
 
 }
@@ -88,6 +89,7 @@ function getDOMFromFunctionComponent(VNode) {
 function getDOMByClassComponent(VNode) { 
   const { type, props, ref } = VNode
   const instance = new type(props)
+  VNode.classInstance = instance
   const renderVNode = instance.render()
   if (ref) { 
     ref.current = instance
@@ -116,8 +118,8 @@ export function updateDOMTreeByVNode(oldVNode, newVNode, parentNode) {
     DELETE: oldVNode && !newVNode,
     REPLACE: oldVNode && newVNode && oldVNode.type !== newVNode.type
   }
-  const typeKey = Object.keys(typeMap).find(key => typeMap[key])
-  switch (typeKey) { 
+  const TYPE_KEY = Object.keys(typeMap).find(key => typeMap[key])
+  switch (TYPE_KEY) { 
     case 'NO_OPERATE': { 
       break
     }
@@ -147,8 +149,63 @@ function removeVNode(VNode) {
   }
 }
 function deepDOMDiff(oldVNode, newVNode) { 
+  const type = oldVNode.type
+  const DIFF_TYPE_MAP = {
+    ORIGIN_NODE: typeof type === 'string',
+    CLASS_COMPONENT: typeof type === 'function' && oldVNode.$$typeof === REACT_ELEMENT && type.IS_CLASS_COMPONENT,
+    FUNCTION_COMPONENT: typeof type === 'function' && oldVNode.$$typeof === REACT_ELEMENT,
+    TEXT: type === REACT_TEXT
+  }
+  const DIFF_TYPE = Object.keys(DIFF_TYPE_MAP).find(key => DIFF_TYPE_MAP[key])
+  switch (DIFF_TYPE) { 
+    case 'ORIGIN_NODE': { 
+      const currentDOM = newVNode.dom = getDOMByVNode(oldVNode)
+      setPropsForDOM(currentDOM, newVNode.props)
+      updateChildren(currentDOM, oldVNode.props.children, newVNode.props.children)
+      break
+    }
+    case 'CLASS_COMPONENT': { 
+      updateClassComponent(oldVNode, newVNode)
+      break
+    }
+    case 'FUNCTION_COMPONENT': { 
+      updateFunctionComponent(oldVNode, newVNode)
+      break
+    }
+    case 'TEXT': { 
+      newVNode.dom = getDOMByVNode(oldVNode)
+      newVNode.dom.textContent = newVNode.props.text
+      break
+    }
+    default: { 
+      break
+    }
+  }
+}
+
+// DOM DIFF算法核心
+function updateChildren(parentNode, oldVNodeChildren, newVNodeChildren) { 
+  
 
 }
+
+function updateClassComponent(oldVNode, newVNode) { 
+  const currentInstance = newVNode.classInstance = oldVNode.classInstance
+  currentInstance.updater.launchUpdate()
+
+
+}
+
+function updateFunctionComponent(oldVNode, newVNode) { 
+  const oldDOM = getDOMByVNode(oldVNode)
+  if (!oldDOM) return
+  const { type, props } = newVNode
+  const newRenderVNode = type(props)
+  updateDOMTreeByVNode(oldVNode.oldRenderVNode, newRenderVNode, oldDOM)
+  newVNode.oldRenderVNode = newRenderVNode
+}
+
+
 
 export function getDOMByVNode(VNode) { 
   if (!VNode) return null

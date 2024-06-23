@@ -68,7 +68,7 @@ export class Component {
     const newVNode = this.render()
     const oldDOM = getDOMByVNode(oldVNode)
     // todo： 调用新的updateDOMTreeByVNode：
-    updateDOMTreeByVNode(oldDOM, newVNode)
+    updateDOMTreeByVNode(oldDOM, newVNode, oldVNode.parentVNode.dom)
     this.oldVNode = newVNode
   }
 }
